@@ -82,7 +82,7 @@
       font-size: 0.9rem;
     }
 
-    /* Contenedor del reproductor (Solo para TyC y similares) */
+    /* Contenedor del reproductor a pantalla completa */
     #contenedor-reproductor {
       display: none;
       width: 100%;
@@ -92,19 +92,6 @@
       left: 0;
       background: #000;
       z-index: 1000;
-    }
-
-    #btn-cerrar {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      background: red;
-      color: white;
-      border: none;
-      padding: 10px 15px;
-      border-radius: 5px;
-      cursor: pointer;
-      z-index: 1001;
     }
 
     #player { width: 100%; height: 100%; }
@@ -119,7 +106,6 @@
   </div>
 
   <div id="contenedor-reproductor">
-    <button id="btn-cerrar" onclick="cerrarReproductor()">CERRAR</button>
     <div id="player"></div>
   </div>
 
@@ -161,10 +147,8 @@
 
     function abrirCanal(canal) {
       if (canal.metodo === "externo") {
-        // Abre ESPN Premium en pestaña nueva
         window.open(canal.url, '_blank');
       } else {
-        // Abre TyC Sports en el reproductor interno
         document.getElementById('interfaz-lista').style.display = 'none';
         document.getElementById('contenedor-reproductor').style.display = 'block';
 
@@ -182,6 +166,8 @@
           height: "100%",
           autostart: true
         });
+        
+        // Push state permite que el botón "atrás" del navegador cierre el player
         window.history.pushState({view: 'player'}, canal.nombre);
       }
     }
@@ -192,7 +178,11 @@
       document.getElementById('contenedor-reproductor').style.display = 'none';
     }
 
-    window.onpopstate = function() { cerrarReproductor(); };
+    // Escuchar el botón atrás para volver a la lista
+    window.onpopstate = function() {
+      cerrarReproductor();
+    };
+
     window.onload = () => cargarCanales(canales);
   </script>
 </body>
