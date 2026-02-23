@@ -1,125 +1,151 @@
-<!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TV Player - GitHub Pages</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #050505; color: #efefef; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; margin: 0; }
-        .header-search { padding: 15px; background: #111; border-bottom: 2px solid #ff0000; position: sticky; top: 0; z-index: 100; }
-        #search-bar { background: #222; border: 1px solid #444; color: white; border-radius: 8px; padding: 12px; }
-        #search-bar:focus { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); border-color: red; }
-        #channel-list { overflow-y: auto; flex-grow: 1; padding: 10px; }
-        .channel-card { 
-            background: #1a1a1a; 
-            margin-bottom: 8px; 
-            padding: 15px; 
-            border-radius: 10px; 
-            cursor: pointer; 
-            transition: 0.3s;
-            border-left: 4px solid transparent;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .channel-card:hover { background: #252525; border-left-color: red; transform: translateX(5px); }
-        .status-info { text-align: center; margin-top: 50px; color: #888; }
-        .btn-play { background: red; color: white; border: none; padding: 5px 15px; border-radius: 5px; font-weight: bold; }
-        .loader { width: 48px; height: 48px; border: 5px solid #FFF; border-bottom-color: #FF3D00; border-radius: 50%; display: inline-block; animation: rotation 1s linear infinite; }
-        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TV Digital - Solo Nombres</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #051F20;
+      font-family: 'Segoe UI', sans-serif;
+      color: white;
+    }
+
+    #interfaz-lista {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 { 
+      color: #00FFFF; 
+      font-size: 1.5rem; 
+      text-transform: uppercase;
+      margin-bottom: 25px;
+      letter-spacing: 1px;
+    }
+
+    .grid-canales {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 15px;
+      width: 100%;
+      max-width: 800px;
+    }
+
+    .canal-card {
+      background: #0a2d2e;
+      border: 1px solid rgba(0, 255, 255, 0.4);
+      border-radius: 6px;
+      padding: 20px 10px; /* Espaciado para compensar la falta de imagen */
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 50px;
+    }
+
+    .canal-card:hover {
+      border-color: #00FFFF;
+      background: rgba(0, 255, 255, 0.15);
+      transform: scale(1.02);
+    }
+
+    .canal-nombre { 
+      color: #00FFFF; 
+      font-weight: 600; 
+      font-size: 1rem;
+      text-transform: uppercase;
+    }
+
+    /* Contenedor del reproductor */
+    #contenedor-reproductor {
+      display: none;
+      width: 100vw;
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+      background: #000;
+      z-index: 1000;
+    }
+
+    #player { width: 100%; height: 100%; }
+  </style>
 </head>
 <body>
 
-    <div class="header-search">
-        <input type="text" id="search-bar" class="form-control" placeholder="🔍 Buscar canal por nombre...">
-    </div>
+  <div id="interfaz-lista">
+    <h1>Canales</h1>
+    <div class="grid-canales" id="contenedorCanales"></div>
+  </div>
 
-    <div id="status" class="status-info">
-        <span class="loader"></span>
-        <p>Obteniendo lista de canales...</p>
-    </div>
+  <div id="contenedor-reproductor">
+    <div id="player"></div>
+  </div>
 
-    <div id="channel-list"></div>
+  <script src="https://ssl.p.jwpcdn.com/player/v/8.21.1/jwplayer.js"></script>
 
-    <script>
-        const listContainer = document.getElementById('channel-list');
-        const searchInput = document.getElementById('search-bar');
-        const statusDiv = document.getElementById('status');
-        let allChannels = [];
+  <script>
+    const canales = [
+      {
+        nombre: "TyC Sports",
+        url: "https://cdn03.gigared.com.ar/live/eds/TyC_Sports/sa_live_dash/TyC_Sports.mpd",
+        keyId: "cac7b52cb14661fe3db0449020791d97",
+        key: "0c2780acce4ef9d7334ef25be445ceb4"
+      }
+      // Para agregar más, solo copia el bloque anterior aquí abajo
+    ];
 
-        // Función para cargar la lista con bypass de CORS
-        async function loadData() {
-            const apiURL = 'https://magma.alwaysdata.net/budtv/tvmagmanew/api.php';
-            // Usamos un proxy para que GitHub no bloquee la petición
-            const proxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(apiURL);
+    function cargarCanales() {
+      const contenedor = document.getElementById('contenedorCanales');
+      canales.forEach(canal => {
+        const card = document.createElement('div');
+        card.className = 'canal-card';
+        card.onclick = () => abrirCanal(canal);
+        card.innerHTML = `<div class="canal-nombre">${canal.nombre}</div>`;
+        contenedor.appendChild(card);
+      });
+    }
 
-            try {
-                const response = await fetch(proxy);
-                if (!response.ok) throw new Error('Error de conexión');
-                
-                const json = await response.json();
-                const m3uContent = json.contents; // Extraemos el texto de la lista
+    function abrirCanal(canal) {
+      document.getElementById('interfaz-lista').style.display = 'none';
+      document.getElementById('contenedor-reproductor').style.display = 'block';
 
-                if (!m3uContent) throw new Error('La lista está vacía');
+      jwplayer.key = 'XSuP4qMl+9tK17QNb+4+th2Pm9AWgMO/cYH8CI0HGGr7bdjo';
+      jwplayer("player").setup({
+        playlist: [{
+          title: canal.nombre,
+          sources: [{
+            file: canal.url,
+            type: "dash",
+            drm: { clearkey: { keyId: canal.keyId, key: canal.key } }
+          }]
+        }],
+        width: "100%",
+        height: "100%",
+        autostart: true,
+        stretching: "uniform"
+      });
 
-                parseM3U(m3uContent);
-            } catch (error) {
-                statusDiv.innerHTML = `<p style="color:red">❌ Error: No se pudo cargar la lista.<br>Intenta refrescar la página.</p>`;
-                console.error(error);
-            }
-        }
+      // Registro en el historial para permitir volver atrás
+      window.history.pushState({view: 'player'}, canal.nombre);
+    }
 
-        // Procesador de formato M3U
-        function parseM3U(content) {
-            const lines = content.split('\n');
-            allChannels = [];
+    // Al apretar el botón de atrás (celular o control remoto)
+    window.onpopstate = function(event) {
+      if (jwplayer("player")) {
+        jwplayer("player").remove(); 
+      }
+      document.getElementById('interfaz-lista').style.display = 'flex';
+      document.getElementById('contenedor-reproductor').style.display = 'none';
+    };
 
-            for (let i = 0; i < lines.length; i++) {
-                if (lines[i].startsWith('#EXTINF:')) {
-                    // Extraer nombre después de la coma
-                    const name = lines[i].split(',')[1]?.trim() || "Canal Desconocido";
-                    // La URL suele ser la siguiente línea que empieza con http
-                    const url = lines[i+1]?.trim();
-
-                    if (url && url.startsWith('http')) {
-                        allChannels.push({ name, url });
-                    }
-                }
-            }
-            statusDiv.style.display = 'none';
-            displayChannels(allChannels);
-        }
-
-        // Renderizado en pantalla
-        function displayChannels(channels) {
-            listContainer.innerHTML = '';
-            if (channels.length === 0) {
-                listContainer.innerHTML = '<p class="text-center">No se encontraron canales.</p>';
-                return;
-            }
-
-            channels.forEach(ch => {
-                const card = document.createElement('div');
-                card.className = 'channel-card';
-                card.innerHTML = `
-                    <span><strong>${ch.name}</strong></span>
-                    <button class="btn-play">VER</button>
-                `;
-                card.onclick = () => window.open(ch.url, '_blank');
-                listContainer.appendChild(card);
-            });
-        }
-
-        // Buscador
-        searchInput.addEventListener('input', (e) => {
-            const term = e.target.value.toLowerCase();
-            const filtered = allChannels.filter(c => c.name.toLowerCase().includes(term));
-            displayChannels(filtered);
-        });
-
-        loadData();
-    </script>
+    window.onload = cargarCanales;
+  </script>
 </body>
 </html>
