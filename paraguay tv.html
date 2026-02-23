@@ -3,145 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lista de Canales M3U8</title>
+    <title>TV Player - GitHub Pages</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #0e0e0e; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; height: 100vh; margin: 0; }
-        #mainContainer { display: flex; flex-direction: column; height: 100vh; }
-        #channel-list { overflow-y: auto; padding: 10px; flex-grow: 1; background: #161616; }
-        .channel-item { 
+        body { background-color: #050505; color: #efefef; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; margin: 0; }
+        .header-search { padding: 15px; background: #111; border-bottom: 2px solid #ff0000; position: sticky; top: 0; z-index: 100; }
+        #search-bar { background: #222; border: 1px solid #444; color: white; border-radius: 8px; padding: 12px; }
+        #search-bar:focus { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); border-color: red; }
+        #channel-list { overflow-y: auto; flex-grow: 1; padding: 10px; }
+        .channel-card { 
+            background: #1a1a1a; 
+            margin-bottom: 8px; 
             padding: 15px; 
+            border-radius: 10px; 
             cursor: pointer; 
-            border-bottom: 1px solid #222; 
-            transition: 0.2s;
+            transition: 0.3s;
+            border-left: 4px solid transparent;
             display: flex;
+            justify-content: space-between;
             align-items: center;
         }
-        .channel-item:hover { background: #ff000044; }
-        .channel-item:focus { outline: none; background: #ff000066; }
-        #search-bar { 
-            margin: 15px; 
-            background: #222; 
-            border: 1px solid #444; 
-            color: white; 
-            padding: 12px;
-        }
-        .status-msg { text-align: center; padding: 20px; color: #aaa; font-style: italic; }
-        .badge-live { background: red; font-size: 10px; padding: 3px 6px; border-radius: 4px; margin-right: 10px; }
+        .channel-card:hover { background: #252525; border-left-color: red; transform: translateX(5px); }
+        .status-info { text-align: center; margin-top: 50px; color: #888; }
+        .btn-play { background: red; color: white; border: none; padding: 5px 15px; border-radius: 5px; font-weight: bold; }
+        .loader { width: 48px; height: 48px; border: 5px solid #FFF; border-bottom-color: #FF3D00; border-radius: 50%; display: inline-block; animation: rotation 1s linear infinite; }
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-<div id="mainContainer">
-    <input type="text" id="search-bar" class="form-control" placeholder="🔍 Buscar canal por nombre...">
-    <div id="status" class="status-msg">Iniciando carga de canales...</div>
-    <aside id="channel-list"></aside>
-</div>
+    <div class="header-search">
+        <input type="text" id="search-bar" class="form-control" placeholder="🔍 Buscar canal por nombre...">
+    </div>
 
-<script>
-    const channelList = document.getElementById('channel-list');
-    const searchBar = document.getElementById('search-bar');
-    const statusMsg = document.getElementById('status');
-    let allChannels = [];
+    <div id="status" class="status-info">
+        <span class="loader"></span>
+        <p>Obteniendo lista de canales...</p>
+    </div>
 
-    // 1. Intentamos cargar tu lista usando un proxy para evitar bloqueo CORS
-    async function loadPlaylist() {
-        const targetUrl = 'https://magma.alwaysdata.net/budtv/tvmagmanew/api.php';
-        // Usamos allorigins.win que es un proxy gratuito y estable para GitHub Pages
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+    <div id="channel-list"></div>
 
-        try {
-            statusMsg.textContent = "Conectando con el servidor...";
-            const response = await fetch(proxyUrl);
-            
-            if (!response.ok) throw new Error("Error en respuesta");
-            
-            const data = await response.json();
-            const content = data.contents; // El contenido real de la lista
+    <script>
+        const listContainer = document.getElementById('channel-list');
+        const searchInput = document.getElementById('search-bar');
+        const statusDiv = document.getElementById('status');
+        let allChannels = [];
 
-            if (!content || content.trim() === "") {
-                throw new Error("Lista vacía");
-            }
+        // Función para cargar la lista con bypass de CORS
+        async function loadData() {
+            const apiURL = 'https://magma.alwaysdata.net/budtv/tvmagmanew/api.php';
+            // Usamos un proxy para que GitHub no bloquee la petición
+            const proxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(apiURL);
 
-            parseM3U(content);
-            statusMsg.style.display = 'none';
-        } catch (error) {
-            console.error(error);
-            statusMsg.innerHTML = "❌ Error al cargar la lista original.<br><small>Probando lista de respaldo...</small>";
-            // Si falla, cargamos una lista de prueba para verificar que el código funciona
-            loadBackup();
-        }
-    }
-
-    function parseM3U(data) {
-        const lines = data.split('\n');
-        allChannels = [];
-        
-        for (let i = 0; i < lines.length; i++) {
-            let line = lines[i].trim();
-            if (line.startsWith('#EXTINF:')) {
-                // Extraer nombre del canal
-                const nameMatch = line.match(/,(.*)$/);
-                const name = nameMatch ? nameMatch[1].trim() : "Canal Desconocido";
+            try {
+                const response = await fetch(proxy);
+                if (!response.ok) throw new Error('Error de conexión');
                 
-                // Buscar la URL en la siguiente línea
-                let url = "";
-                if (lines[i+1] && lines[i+1].startsWith('http')) {
-                    url = lines[i+1].trim();
-                }
+                const json = await response.json();
+                const m3uContent = json.contents; // Extraemos el texto de la lista
 
-                if (url) {
-                    allChannels.push({ name, url });
-                }
+                if (!m3uContent) throw new Error('La lista está vacía');
+
+                parseM3U(m3uContent);
+            } catch (error) {
+                statusDiv.innerHTML = `<p style="color:red">❌ Error: No se pudo cargar la lista.<br>Intenta refrescar la página.</p>`;
+                console.error(error);
             }
         }
-        renderChannels(allChannels);
-    }
 
-    function renderChannels(list) {
-        channelList.innerHTML = '';
-        if (list.length === 0) {
-            channelList.innerHTML = '<div class="status-msg">No se encontraron canales.</div>';
-            return;
+        // Procesador de formato M3U
+        function parseM3U(content) {
+            const lines = content.split('\n');
+            allChannels = [];
+
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].startsWith('#EXTINF:')) {
+                    // Extraer nombre después de la coma
+                    const name = lines[i].split(',')[1]?.trim() || "Canal Desconocido";
+                    // La URL suele ser la siguiente línea que empieza con http
+                    const url = lines[i+1]?.trim();
+
+                    if (url && url.startsWith('http')) {
+                        allChannels.push({ name, url });
+                    }
+                }
+            }
+            statusDiv.style.display = 'none';
+            displayChannels(allChannels);
         }
 
-        list.forEach(channel => {
-            const div = document.createElement('div');
-            div.className = 'channel-item';
-            div.tabIndex = 0;
-            div.innerHTML = `<span class="badge-live">LIVE</span> ${channel.name}`;
-            
-            div.onclick = () => window.open(channel.url, '_blank');
-            
-            // Soporte para teclado (Enter)
-            div.onkeydown = (e) => {
-                if (e.key === 'Enter') window.open(channel.url, '_blank');
-            };
+        // Renderizado en pantalla
+        function displayChannels(channels) {
+            listContainer.innerHTML = '';
+            if (channels.length === 0) {
+                listContainer.innerHTML = '<p class="text-center">No se encontraron canales.</p>';
+                return;
+            }
 
-            channelList.appendChild(div);
+            channels.forEach(ch => {
+                const card = document.createElement('div');
+                card.className = 'channel-card';
+                card.innerHTML = `
+                    <span><strong>${ch.name}</strong></span>
+                    <button class="btn-play">VER</button>
+                `;
+                card.onclick = () => window.open(ch.url, '_blank');
+                listContainer.appendChild(card);
+            });
+        }
+
+        // Buscador
+        searchInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const filtered = allChannels.filter(c => c.name.toLowerCase().includes(term));
+            displayChannels(filtered);
         });
-    }
 
-    // Buscador en tiempo real
-    searchBar.addEventListener('input', (e) => {
-        const term = e.target.value.toLowerCase();
-        const filtered = allChannels.filter(c => c.name.toLowerCase().includes(term));
-        renderChannels(filtered);
-    });
-
-    // Lista de respaldo por si tu servidor falla
-    function loadBackup() {
-        const sampleM3U = `#EXTM3U
-#EXTINF:-1,Canal de Prueba 1
-https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
-#EXTINF:-1,Canal de Prueba 2
-https://bitdash-a.akamaihd.net/content/MI201109210084_1/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8`;
-        parseM3U(sampleM3U);
-        statusMsg.innerHTML = "⚠️ Usando lista de respaldo (Servidor original no responde)";
-    }
-
-    loadPlaylist();
-</script>
-
+        loadData();
+    </script>
 </body>
 </html>
